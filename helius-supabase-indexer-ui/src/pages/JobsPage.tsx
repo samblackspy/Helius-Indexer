@@ -29,24 +29,74 @@ interface AddJobFormProps {
 
 // --- Helper: Simple Spinner ---
 const Spinner = () => (
-  <svg className="animate-spin inline-block h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-  </svg>
+    <svg className="animate-spin inline-block h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  );
+
+// --- Schema Definitions ---
+// Store schemas associated with category values
+const requiredSchemas: Record<string, string> = {
+    'MINT_ACTIVITY': `
+CREATE TABLE public.helius_mint_activity (
+    tx_signature TEXT PRIMARY KEY NOT NULL,
+    block_time TIMESTAMPTZ NOT NULL,
+    slot BIGINT,
+    monitored_mint_address TEXT NOT NULL,
+    tx_type TEXT,
+    fee_sol NUMERIC,
+    success BOOLEAN,
+    involved_accounts TEXT[],
+    token_transfers JSONB,
+    nft_events JSONB,
+    instructions JSONB,
+    log_messages TEXT[],
+    raw_payload JSONB NOT NULL,
+    worker_processed_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Optional Indexes:
+CREATE INDEX IF NOT EXISTS idx_hma_block_time ON public.helius_mint_activity(block_time DESC);
+CREATE INDEX IF NOT EXISTS idx_hma_monitored_mint ON public.helius_mint_activity(monitored_mint_address);
+CREATE INDEX IF NOT EXISTS idx_hma_tx_type ON public.helius_mint_activity(tx_type);
+    `.trim(), // Trim leading/trailing whitespace
+
+    'PROGRAM_INTERACTIONS': `
+CREATE TABLE public.helius_program_activity (
+    tx_signature TEXT NOT NULL,
+    instruction_index SMALLINT NOT NULL,
+    inner_instruction_index SMALLINT NOT NULL,
+    block_time TIMESTAMPTZ NOT NULL,
+    slot BIGINT,
+    monitored_program_id TEXT NOT NULL,
+    instruction_name TEXT,
+    accounts JSONB,
+    data TEXT,
+    fee_sol NUMERIC,
+    success BOOLEAN,
+    signers TEXT[],
+    raw_payload JSONB NOT NULL,
+    worker_processed_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT helius_program_activity_pkey PRIMARY KEY (tx_signature, instruction_index, inner_instruction_index)
+);
+
+-- Optional Indexes:
+CREATE INDEX IF NOT EXISTS idx_hpa_block_time ON public.helius_program_activity(block_time DESC);
+CREATE INDEX IF NOT EXISTS idx_hpa_program_id ON public.helius_program_activity(monitored_program_id);
+CREATE INDEX IF NOT EXISTS idx_hpa_ix_name ON public.helius_program_activity(instruction_name);
+    `.trim() // Trim leading/trailing whitespace
+};
+
 
 // --- Main Page Component ---
 const JobsPage: React.FC = () => {
     const [jobs, setJobs] = useState<IndexingJob[]>([]);
-    const [credentials, setCredentials] = useState<Credential[]>([]); // For the form
+    const [credentials, setCredentials] = useState<Credential[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [pageError, setPageError] = useState<string | null>(null); // Page-level errors
+    const [pageError, setPageError] = useState<string | null>(null);
     const [showAddForm, setShowAddForm] = useState<boolean>(false);
-
-    // State for tracking delete operations status per job ID
     const [deleteStatus, setDeleteStatus] = useState<Record<string, { status: 'deleting' | 'error' }>>({});
-
-    // State specific to the Add Job Form
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -55,14 +105,13 @@ const JobsPage: React.FC = () => {
         setIsLoading(true);
         setPageError(null);
         try {
-            // Fetch both in parallel using direct fetch functions
             const [jobsData, credentialsData] = await Promise.all([
                 getJobsDirectFetch(),
-                getCredentialsDirectFetch() // Fetch credentials for the AddJobForm dropdown
+                getCredentialsDirectFetch()
             ]);
             setJobs(jobsData);
             setCredentials(credentialsData);
-        } catch (err: unknown) { // Use unknown
+        } catch (err: unknown) {
             const errorMsg = (err instanceof Error) ? err.message : 'Failed to fetch initial data.';
             setPageError(errorMsg);
             setJobs([]);
@@ -81,15 +130,14 @@ const JobsPage: React.FC = () => {
         setIsSaving(true);
         setSaveError(null);
         try {
-            // Add validation if needed before calling API
             console.log("Attempting save using addJobDirectFetch...");
             const newJob = await addJobDirectFetch(data); // Use direct fetch version
-            setJobs(prev => [newJob, ...prev]); // Add to beginning of list
-            setShowAddForm(false); // Hide form on success
-        } catch (err: unknown) { // Use unknown
+            setJobs(prev => [newJob, ...prev]);
+            setShowAddForm(false);
+        } catch (err: unknown) {
              const errorMsg = (err instanceof Error) ? err.message : 'Failed to save job.';
             setSaveError(errorMsg);
-            throw err; // Rethrow for form handling
+            throw err;
         } finally {
             setIsSaving(false);
         }
@@ -104,13 +152,13 @@ const JobsPage: React.FC = () => {
         setPageError(null);
         try {
             await deleteJobDirectFetch(id); // Use direct fetch version
-            setJobs(prev => prev.filter(job => job.id !== id)); // Remove from list
+            setJobs(prev => prev.filter(job => job.id !== id));
             setDeleteStatus(prev => {
                 const newState = {...prev};
                 delete newState[id];
                 return newState;
             });
-        } catch (err: unknown) { // Use unknown
+        } catch (err: unknown) {
             const errorMsg = (err instanceof Error) ? err.message : 'Failed to delete job.';
             setPageError(`Failed to delete job: ${errorMsg}`);
             setDeleteStatus(prev => ({ ...prev, [id]: { status: 'error' } }));
@@ -120,7 +168,7 @@ const JobsPage: React.FC = () => {
      // Handler for cancelling the Add form
      const handleCancelAdd = () => {
         setShowAddForm(false);
-        setSaveError(null); // Clear any previous save errors
+        setSaveError(null);
      };
 
     // --- Render UI ---
@@ -232,7 +280,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, onDelete, deleteStatus }) => {
                     {jobs.map(job => {
                          const currentDeleteStatus = deleteStatus[job.id];
                          const isDeleting = currentDeleteStatus?.status === 'deleting';
-                         const isDisabled = isDeleting; // Add other conditions like 'pausing' if needed
+                         const isDisabled = isDeleting;
 
                          // Format parameters for display
                          const paramsString = job.category_params
@@ -258,7 +306,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, onDelete, deleteStatus }) => {
                                     }`}>
                                         {job.status}
                                      </span>
-                                     {/* Display error message if status is error */}
                                      {job.status === 'error' && (
                                         <p className="text-xs text-red-600 mt-1 max-w-[200px] truncate" title={job.error_message ?? ''}>
                                             {job.error_message || 'An error occurred'}
@@ -266,11 +313,9 @@ const JobList: React.FC<JobListProps> = ({ jobs, onDelete, deleteStatus }) => {
                                      )}
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
-                                     {/* Placeholder for View Logs - Link to where logs might be viewed */}
                                      <button disabled className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-400 cursor-not-allowed" title="View Logs (Coming Soon)">
                                          Logs
                                     </button>
-                                      {/* Delete Button */}
                                       <button
                                         onClick={() => !isDisabled && onDelete(job.id)}
                                         disabled={isDisabled}
@@ -296,7 +341,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, onDelete, deleteStatus }) => {
 }; // End of JobList Component
 
 
-// --- Child Component: AddJobForm ---
+// --- Child Component: AddJobForm (with Schema Display) ---
 
 const AddJobForm: React.FC<AddJobFormProps> = ({ credentials, onSubmit, isSaving, error, onCancel }) => {
      // Define available categories and their required parameters
@@ -306,10 +351,10 @@ const AddJobForm: React.FC<AddJobFormProps> = ({ credentials, onSubmit, isSaving
          // Add more categories here as they are implemented
      ];
 
+     // State hooks
      const [selectedCategoryValue, setSelectedCategoryValue] = useState<string>(availableCategories[0]?.value || '');
      const [credentialId, setCredentialId] = useState<string>(credentials[0]?.id || '');
      const [targetTable, setTargetTable] = useState<string>('');
-     // Use a single state object for potentially multiple parameters
      const [params, setParams] = useState<Record<string, string>>({});
 
      // Update params state when category changes, clearing old params
@@ -327,37 +372,43 @@ const AddJobForm: React.FC<AddJobFormProps> = ({ credentials, onSubmit, isSaving
      const handleSubmit = async (e: FormEvent) => {
          e.preventDefault();
          const selectedCategoryConfig = availableCategories.find(c => c.value === selectedCategoryValue);
-         // Validate required fields
+         // Basic validation
          if (!credentialId || !selectedCategoryValue || !targetTable || !selectedCategoryConfig) {
-             alert("Please select a credential, category, and enter a target table name.");
-             return;
+             alert("Please select a credential, category, and enter a target table name."); return;
          }
-         // Validate all required params for the selected category are filled
          for (const param of selectedCategoryConfig.params) {
-            if (!params[param.name]) {
-                 alert(`Please enter the required parameter: ${param.label}`);
-                 return;
+            if (!params[param.name] || params[param.name].trim() === '') {
+                 alert(`Please enter the required parameter: ${param.label}`); return;
             }
+         }
+         // Basic table name validation (alphanumeric + underscore)
+         if (!/^[a-zA-Z0-9_]+$/.test(targetTable.trim())) {
+             alert("Target table name can only contain letters, numbers, and underscores."); return;
          }
 
          const jobData: NewJobData = {
              credential_id: credentialId,
              data_category: selectedCategoryValue,
-             target_table_name: targetTable.trim(), // Trim whitespace
-             category_params: params,
+             target_table_name: targetTable.trim(),
+             // Trim parameter values before sending
+             category_params: Object.fromEntries(
+                 Object.entries(params).map(([key, value]) => [key, value.trim()])
+             ),
          };
          console.log("Submitting Job Data:", jobData);
          try {
              await onSubmit(jobData);
              // Form is hidden by parent on success
          } catch (err: unknown) {
-            // Error is displayed by parent component via the 'error' prop
             console.error("Save job failed (error handled by parent):", err);
          }
      };
 
+     // Get the schema for the currently selected category
+     const currentSchema = requiredSchemas[selectedCategoryValue];
      const currentCategoryConfig = availableCategories.find(cat => cat.value === selectedCategoryValue);
 
+     // Render the form
      return (
           <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md border border-gray-200 mb-6 animate-fade-in">
              <h2 className="text-xl font-semibold text-gray-700 mb-6 border-b pb-3">Create New Indexing Job</h2>
@@ -375,14 +426,13 @@ const AddJobForm: React.FC<AddJobFormProps> = ({ credentials, onSubmit, isSaving
                      <label htmlFor="credential_id" className="block text-sm font-medium text-gray-700 mb-1">Database Credential <span className="text-red-500">*</span></label>
                      <select id="credential_id" name="credential_id" value={credentialId} onChange={(e) => setCredentialId(e.target.value)} required disabled={isSaving || credentials.length === 0}
                              className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md disabled:bg-gray-50 disabled:cursor-not-allowed">
-                         {credentials.length === 0 && <option value="" disabled>No credentials available</option>}
+                         {credentials.length === 0 && <option value="" disabled>No credentials available - Please add one first</option>}
                          {credentials.map(cred => (
                              <option key={cred.id} value={cred.id}>
-                                 {cred.alias || `${cred.username}@${cred.host}/${cred.db_name}`} ({cred.id.substring(0,6)}...)
+                                 {cred.alias || `${cred.username}@${cred.host}`} ({cred.id.substring(0,6)}...)
                              </option>
                          ))}
                      </select>
-                     {credentials.length === 0 && <p className="text-xs text-red-500 mt-1">Error: No database credentials found. Please add one first.</p>}
                  </div>
 
                  {/* Select Category */}
@@ -408,11 +458,23 @@ const AddJobForm: React.FC<AddJobFormProps> = ({ credentials, onSubmit, isSaving
                  {/* Target Table Name */}
                 <div>
                     <label htmlFor="target_table_name" className="block text-sm font-medium text-gray-700 mb-1">Target Table Name <span className="text-red-500">*</span></label>
-                    <input type="text" name="target_table_name" id="target_table_name" value={targetTable} onChange={(e) => setTargetTable(e.target.value)} required disabled={isSaving} pattern="^[a-zA-Z0-9_]+$" title="Table name can only contain letters, numbers, and underscores." placeholder="e.g., solana_mint_activity"
+                    <input type="text" name="target_table_name" id="target_table_name" value={targetTable} onChange={(e) => setTargetTable(e.target.value)} required disabled={isSaving} pattern="^[a-zA-Z0-9_]+$" title="Table name can only contain letters, numbers, and underscores." placeholder="e.g., helius_mint_activity"
                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-50 disabled:cursor-not-allowed"/>
-                    <p className="mt-1 text-xs text-gray-500">Table must exist in your DB with the correct schema. Only letters, numbers, underscores allowed.</p>
-                    {/* TODO: Link to schema documentation based on selected category */}
+                    <p className="mt-1 text-xs text-gray-500">Table must exist in your DB with the schema shown below. Only letters, numbers, underscores allowed.</p>
                  </div>
+
+                {/* --- Display Required Schema --- */}
+                {currentSchema && (
+                    <div className="mt-6 pt-4 border-t">
+                         <h3 className="text-lg font-medium text-gray-800 mb-2">Required Table Schema for '{currentCategoryConfig?.label}'</h3>
+                         <p className="text-sm text-gray-600 mb-3">Please ensure a table with the name you entered above exists in your target database and matches this structure:</p>
+                         <div className="bg-gray-800 text-gray-100 rounded-md p-4 text-xs font-mono overflow-x-auto">
+                            <pre><code>{currentSchema}</code></pre>
+                         </div>
+                    </div>
+                )}
+                {/* --- End Schema Display --- */}
+
 
                  {/* Action Buttons */}
                  <div className="flex justify-end items-center space-x-3 pt-4">
@@ -430,5 +492,5 @@ const AddJobForm: React.FC<AddJobFormProps> = ({ credentials, onSubmit, isSaving
 }; // End of AddJobForm Component
 
 
-// Export the main page component
+
 export default JobsPage;
