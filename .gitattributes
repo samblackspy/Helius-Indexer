@@ -1,0 +1,26 @@
+# .gitattributes - Enforce LF line endings for text files in the Git repository
+
+# Auto-detect text files and perform conversions based on platform
+# This is often the default, but explicitly setting it helps.
+* text=auto
+
+# Force LF line endings in the repository for common text file types
+# On checkout, Git will convert LF to the OS's native ending (CRLF on Windows)
+# if core.autocrlf=true (default on Windows).
+# On commit, Git will convert CRLF back to LF.
+*.js      text eol=lf
+*.jsx     text eol=lf
+*.ts      text eol=lf
+*.tsx     text eol=lf
+*.json    text eol=lf
+*.css     text eol=lf
+*.html    text eol=lf
+*.md      text eol=lf
+*.toml    text eol=lf
+*.npmrc   text eol=lf
+.gitignore text eol=lf
+*.env.* text eol=lf
+
+# Example for binary files (prevent conversion)
+# *.png     binary
+# *.jpg     binary

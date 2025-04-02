@@ -1,0 +1,33 @@
+
+[functions.manage-credentials]
+enabled = true
+verify_jwt = true
+import_map = "./functions/manage-credentials/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/manage-credentials/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/manage-credentials/*.html" ]
+
+[functions.manage-jobs]
+enabled = true
+verify_jwt = true
+import_map = "./functions/manage-jobs/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/manage-jobs/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/manage-jobs/*.html" ]
+
+[functions.helius-webhook-receiver]
+enabled = true
+verify_jwt = true
+import_map = "./functions/helius-webhook-receiver/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/helius-webhook-receiver/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/helius-webhook-receiver/*.html" ]
