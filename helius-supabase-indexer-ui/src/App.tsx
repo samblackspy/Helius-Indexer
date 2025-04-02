@@ -7,7 +7,7 @@ import HomePage from './pages/HomePage';
 import CredentialsPage from './pages/CredentialsPage'; 
 import { useAuth } from './context/AuthContext';
 import JobsPage from './pages/JobsPage.tsx'; 
-
+import { Analytics } from "@vercel/analytics/react"
 function App() {
   const { session, loading } = useAuth();
 
@@ -16,6 +16,7 @@ function App() {
   }
 
   return (
+    <>
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={!session ? <LoginPage /> : <Navigate to="/dashboard" />} />
@@ -40,6 +41,8 @@ function App() {
       {/* Redirect unknown paths */}
       <Route path="*" element={<Navigate to={session ? "/dashboard" : "/"} />} />
     </Routes>
+<Analytics />
+    </>
   );
 }
 
