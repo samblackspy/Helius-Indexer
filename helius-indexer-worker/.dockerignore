@@ -1,0 +1,37 @@
+# .dockerignore for helius-indexer-worker
+
+# Ignore Git directory
+.git
+.gitignore
+.gitattributes
+
+# Ignore Node dependencies (these are installed within the container)
+node_modules
+
+# Ignore build output (this is created within the container)
+dist
+
+# Ignore local environment files (these should be injected at runtime)
+.env
+.env.*
+!*.env.example
+
+# Ignore npm debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE/Editor files
+.vscode/
+.idea/
+
+# Ignore Dockerfile itself and related files if needed
+Dockerfile
+*.dockerfile
+
+# Ignore test/coverage reports if any
+coverage/
