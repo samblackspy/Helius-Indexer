@@ -70,7 +70,7 @@ cd Helius-Indexer
   "webhookURL": "https://<YOUR_PROJECT_REF>.supabase.co/functions/v1/helius-webhook-receiver",
   "transactionTypes": ["ANY"],
   "accountAddresses": [],
-  "webhookType": "enhanced",
+  "webhookType": "enhanced", //use "enhancedDevnet" for devnet
   "authHeader": "your-secret-header" // optional
 }
 ```
